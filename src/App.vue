@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import AccountsInfo from './components/AccountsInfo.vue';
+import AccountsInfo from '@/components/AccountsInfo.vue';
 
 </script>
 
