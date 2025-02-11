@@ -8,14 +8,13 @@
       class="title-wrapper__add-button"
       @onClick="$emit('addAccount')"
     >
-      <PlusSvg />
+      <img src="@/assets/plus.svg" alt="Добавить аккаунт">
     </Button>
   </div>
 </template>
 
 <script setup lang="ts">
 import Button from '@/components/Base/Button.vue'
-import PlusSvg from '@/components/Base/SvgComponents/PlusSvg.vue'
 
 defineEmits<{
   (e: 'addAccount'): void
@@ -27,5 +26,11 @@ defineEmits<{
   display: flex;
   align-items: center;
   gap: 15px;
+
+  &__add-button {
+    img {
+      width: 100%;
+    }
+  }
 }
 </style>

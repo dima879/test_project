@@ -3,24 +3,28 @@
     <input
       :class="['account-record__tags', { 'have-errors': !errors.isTagsValid && isTagsChanged }]"
       @focusout="validateTags"
-      v-model="tags"
+      v-model="accountData.tags"
     >
+
     <select
       :class="['account-record__type', { 'have-errors': !errors.isTypeValid && isTypeChanged }]"
       @change="validateType"
-      v-model="type"
+      v-model="accountData.type"
     >
       <option
-        :selected="type === RECORD_TYPES.local"
+        :selected="accountData.type === ERECORD_TYPES.local"
+        :value="ERECORD_TYPES.local"
       >
         {{ RECORD_TYPES.local }}
       </option>
       <option
-        :selected="type === RECORD_TYPES.ldap"
+        :selected="accountData.type === ERECORD_TYPES.ldap"
+        :value="ERECORD_TYPES.ldap"
       >
         {{ RECORD_TYPES.ldap }}
       </option>
     </select>
+
     <input
       :class="[
         'account-record__login',
@@ -28,8 +32,9 @@
         { 'no-password': !isPasswordNeeded }
       ]"
       @focusout="validateLogin"
-      v-model="login"
+      v-model="accountData.login"
     >
+
     <div
       class="account-record__password-wrapper password-wrapper"
       v-if="isPasswordNeeded"
@@ -37,24 +42,27 @@
       <input
         :class="['password-wrapper__password', { 'have-errors': !errors.isPasswordValid && isPasswordChanged }]"
         :type="isPasswordVisible ? 'text' : 'password'"
-        @focusout="() => validatePassword(true)"
-        v-model="password"
+        @focusout="() => validatePassword({ isCheckNeeded: true })"
+        v-model="accountData.password"
       >
       <div
         :class="['password-wrapper__icon', { 'password-wrapper__icon--hidden': !isPasswordVisible }]"
         @click="togglePasswordVisible"
       />
     </div>
-    <div
-      class="account-record__trash-icon"
-      @click="$emit('onDeleteAccount')"
-    />
+
+    <Button @onClick="$emit('onDeleteAccount', accountData.id)">
+      <img src="@/assets/trash-icon.svg" alt="Корзина">
+    </Button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type Ref, type ModelRef } from 'vue';
-import { ERECORD_TYPES, RECORD_TYPES } from '@/types';
+import { ref, computed, reactive } from 'vue';
+
+import { ERECORD_TYPES, RECORD_TYPES, type AccountItem } from '@/types';
+
+import Button from '@/components/Base/Button.vue';
 
 interface ValidateErrors {
   isTagsValid: boolean;
@@ -63,15 +71,14 @@ interface ValidateErrors {
   isPasswordValid: boolean;
 }
 
-const tags = defineModel('tags') as ModelRef<string>;
-const type = defineModel('type') as ModelRef<string>;
-const login = defineModel('login') as ModelRef<string>;
-const password = defineModel('password') as ModelRef<string | null>;
+const props = defineProps<AccountItem>()
 
 const emit = defineEmits<{
-  (e: 'onDeleteAccount'): void
-  (e: 'onSaveAccount'): void
+  (e: 'onDeleteAccount', id: number): void
+  (e: 'onSaveAccount', accountData: AccountItem): void
 }>()
+
+const accountData: AccountItem = reactive({...props})
 
 const isTagsChanged = ref(false);
 const isTypeChanged = ref(false);
@@ -79,39 +86,42 @@ const isLoginChanged = ref(false);
 const isPasswordChanged = ref(false);
 
 const isPasswordVisible = ref(false);
-const errors: Ref<ValidateErrors> = ref({
+const errors = ref<ValidateErrors>({
   isTagsValid: true,
   isTypeValid: false,
   isLoginValid: false,
   isPasswordValid: false,
 });
 
-const isFieldsValid = computed(() => {
-  return Object.values(errors.value).every((item) => item);
-});
+const isFieldsValid = computed<boolean>(() => {
+  return !!(
+    accountData.tags.length <= 50
+      && accountData.type.length
+      && accountData.login
+      && accountData.login.length < 100
+      && (
+        isPasswordNeeded.value
+          ? (accountData.password && accountData.password.length < 100)
+          : true
+      )
+  )
+  });
 
-const isPasswordNeeded = computed(() => {
-  return type.value !== RECORD_TYPES.ldap;
+const isPasswordNeeded = computed<boolean>(() => {
+  return accountData.type !== ERECORD_TYPES.ldap;
 })
 
-const togglePasswordVisible = () => {
+const togglePasswordVisible = (): void => {
   isPasswordVisible.value = !isPasswordVisible.value;
 };
 
-const onSaveAccount = () => {
-  emit('onSaveAccount');
+const onSaveAccount = (): void => {
+  emit('onSaveAccount', accountData);
 };
 
-const validateTags = () => {
+const validateTags = (): void => {
   isTagsChanged.value = true;
-
-  if (tags.value.length > 50) {
-    errors.value.isTagsValid = false;
-
-    return;
-  }
-
-  errors.value.isTagsValid = true;
+  errors.value.isTagsValid = !(accountData.tags.length > 50);
 
   if (isFieldsValid.value) {
     onSaveAccount();
@@ -120,24 +130,16 @@ const validateTags = () => {
 
 const validateType = () => {
   isTypeChanged.value = true;
-
-  if (!type.value.length) {
-    errors.value.isTypeValid = false;
-
-    return;
-  }
+  errors.value.isTypeValid = !!accountData.type.length;
 
   if (!isPasswordNeeded.value) {
-    validatePassword(false);
+    validatePassword({ isCheckNeeded: false} );
 
-    password.value = null;
+    accountData.password = null;
   } else {
     errors.value.isPasswordValid = false;
     isPasswordChanged.value = false;
-
   }
-
-  errors.value.isTypeValid = true;
 
   if (isFieldsValid.value) {
     onSaveAccount();
@@ -146,30 +148,18 @@ const validateType = () => {
 
 const validateLogin = () => {
   isLoginChanged.value = true;
-
-  if (!login.value || login.value.length > 100) {
-    errors.value.isLoginValid = false;
-
-    return;
-  }
-
-  errors.value.isLoginValid = true;
+  errors.value.isLoginValid = !!(accountData.login && accountData.login.length <= 100)
 
   if (isFieldsValid.value) {
     onSaveAccount();
   }
 }
 
-const validatePassword = (isCheckNeeded = true) => {
+const validatePassword = ({ isCheckNeeded }: { isCheckNeeded: boolean }): void=> {
   isPasswordChanged.value = true;
-
-  if (isCheckNeeded && (!password.value || password.value.length > 100)) {
-    errors.value.isPasswordValid = false;
-
-    return;
-  }
-
-  errors.value.isPasswordValid = true;
+  errors.value.isPasswordValid = !(
+    isCheckNeeded && (!accountData.password || accountData.password.length > 100)
+  );
 
   if (isFieldsValid.value) {
     onSaveAccount();

@@ -1,4 +1,5 @@
 interface AccountItem {
+  id: number;
   tags: string;
   type: ERECORD_TYPES;
   login: string;
@@ -8,6 +9,8 @@ interface AccountItem {
 interface TagItem {
   text: string;
 }
+
+type LSAccountItem = Omit<AccountItem, 'tags'> & { tags: TagItem[] }
 
 enum ERECORD_TYPES {
   local = 'local',
@@ -22,6 +25,7 @@ const RECORD_TYPES = {
 export {
   type AccountItem,
   type TagItem,
+  type LSAccountItem,
   ERECORD_TYPES,
-  RECORD_TYPES
+  RECORD_TYPES,
 }

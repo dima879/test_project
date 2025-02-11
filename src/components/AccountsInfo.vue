@@ -1,113 +1,87 @@
 <template>
   <div class="accounts">
-      <AccountsTitle
-        class="accounts__title-wrapper"
-        @addAccount="addAccount"
-      />
+    <AccountsHeader
+      class="accounts__title-wrapper"
+      @addAccount="addAccount"
+    />
 
-      <div
-        v-if="accounts.length"
-        class="accounts__main-info"
-      >
-        <InfoClue />
+    <div
+      v-if="accounts.length"
+      class="accounts__main-info"
+    >
+      <InfoClue />
 
-        <div class="accounts__list list">
-          <div class="list__title">
-            <span class="tags">Метки</span>
-            <span class="type">Тип</span>
-            <span class="login">Логин</span>
-            <span class="password">Пароль</span>
-          </div>
-
-          <AccountRecord
-            v-for="(account, index) in accounts"
-            v-model:tags="account.tags"
-            v-model:type="account.type"
-            v-model:login="account.login"
-            v-model:password="account.password"
-            @onSaveAccount="saveToLocalStorage"
-            @onDeleteAccount="() => deleteAccount(index)"
-          />
+      <div class="accounts__list list">
+        <div class="list__title">
+          <span class="list__tags">Метки/</span>
+          <span class="list__type">Тип/</span>
+          <span class="list__login">Логин/</span>
+          <span class="list__password">Пароль</span>
         </div>
 
+        <AccountRecord
+          v-for="account in accounts"
+          :key="account.id"
+          :id="account.id"
+          :tags="account.tags"
+          :type="account.type"
+          :login="account.login"
+          :password="account.password"
+          @onSaveAccount="saveAccount"
+          @onDeleteAccount="deleteAccount"
+        />
       </div>
+    </div>
 
-      <div v-else>
-        <span class="accounts__empty-list">
-          Список учетных записей пуст
-        </span>
-      </div>
+    <div v-else-if="!isLoading">
+      <span class="accounts__empty-list">
+        Список учетных записей пуст
+      </span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue';
-import AccountsTitle from '@/components/AccountsTitle.vue';
+import { onMounted } from 'vue';
+import { useAccountStore } from '@/stores/account';
+
+import AccountsHeader from '@/components/AccountsHeader.vue';
 import InfoClue from '@/components/InfoClue.vue'
 import AccountRecord from '@/components/AccountRecord.vue'
 
-import {
-  type AccountItem,
-  type TagItem,
-  RECORD_TYPES,
-  ERECORD_TYPES,
-} from '@/types';
+import { type AccountItem, ERECORD_TYPES } from '@/types';
+import { storeToRefs } from 'pinia';
 
-const LS_ACCOUNTS = 'accounts';
-
-const accounts: AccountItem[] = reactive([]);
-
-// const lsAccounts: (Omit<AccountItem, 'tags'> & { tags: TagItem[] })[]  = reactive([]);
+const accountStore = useAccountStore()
+const { isLoading, accounts } = storeToRefs(accountStore)
 
 onMounted(() => {
-  const lsAccountsDataInJson = localStorage.getItem(LS_ACCOUNTS);
-
-  if (!lsAccountsDataInJson) {
-    return;
-  }
-
-  const lsAccountsData = JSON.parse(lsAccountsDataInJson);
-
-  const serializedAccountsData = lsAccountsData.map((
-    account: Omit<AccountItem, 'tags'> & { tags: TagItem[] }
-  ) => {
-    return {
-      ...account,
-      tags: account.tags.map(({ text }) => text).join('; '),
-    }
-  });
-
-  serializedAccountsData.forEach((account: AccountItem) => accounts.push(account));
+  accountStore.fetchAccounts();
 })
 
+const saveAccount = (accountData: AccountItem) => {
+  const index = accounts.value.findIndex(({ id }) => id === accountData.id);
+  accounts.value[index] = accountData;
+
+  accountStore.saveToLocalStorage(accounts);
+};
+
 const addAccount = () => {
-  accounts.push({
+  const id = accounts.value.length ? Math.max(...accounts.value.map(({ id }) => id)) + 1 : 0;
+
+  accounts.value.push({
+    id,
     tags: '',
-    type: ERECORD_TYPES.local,
+    type: ERECORD_TYPES.ldap,
     login: '',
     password: '',
   })
-}
+};
 
-const saveToLocalStorage = () => {
-
-  const serializedAccountsData = accounts.map((
-    account: AccountItem
-  ) => {
-    return {
-      ...account,
-      tags: account.tags.split('; ').map((tag) => tag.trim()),
-    }
-  });
-
-  localStorage.setItem(LS_ACCOUNTS, JSON.stringify(serializedAccountsData));
-}
-
-const deleteAccount = (index: number) => {
-  accounts.splice(index, 1);
-
-  saveToLocalStorage()
-}
+const deleteAccount = (deletedAccountId: number) => {
+  accounts.value = accounts.value.filter(({ id }) => id !== deletedAccountId);
+  accountStore.saveToLocalStorage(accounts)
+};
 </script>
 
 <style scoped lang="scss">
@@ -117,26 +91,6 @@ const deleteAccount = (index: number) => {
     flex-direction: column;
     gap: 10px;
     margin-top: 20px;
-
-    &__title {
-      display: flex;
-      padding-right: 34px;
-      gap: 10px;
-
-      .tags,
-      .login,
-      .password {
-        flex: 3;
-      }
-
-      .type {
-        flex: 2;
-      }
-    }
-  }
-
-  textarea {
-    max-width: 300px;
   }
 }
 </style>

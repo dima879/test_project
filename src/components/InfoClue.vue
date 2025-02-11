@@ -3,6 +3,7 @@
     <div class="clue-wrapper__question-icon">
       <img src="@/assets/question-mark.svg" alt="Вопросительный знак">
     </div>
+
     <span>
       Для указания нескольких меток для одной пары логин/пароль используйте разделитель ;
     </span>
